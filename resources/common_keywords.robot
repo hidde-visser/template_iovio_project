@@ -96,4 +96,4 @@ Global search and select type
     ClickText                   Search...
     # ClickElement              //button[contains(@aria-label,'Search')]
     TypeText                    Search...                   ${name}
-    Clickelement                //span[contains(@title,'${name}')]/ancestor::div[@class\='instant-results-list']//span[contains(text(),'${type}')]
+    ClickElement                //span[@title\='${name}']/ancestor::div[@class\='instant-results-list']//span[text()\='${type}']
