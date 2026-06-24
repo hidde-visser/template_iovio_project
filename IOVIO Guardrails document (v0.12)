@@ -1,6 +1,6 @@
 IOVIO Guardrails Documentation (v0.14)
 
-1. Keyword Management & Architecture
+1. Keyword Management & Architecture 
 Core Shared Assets: All globally reusable keywords (such as login procedures, browser setup, etc.) are centrally located in ../resources/common_keywords.robot.
 Area-Specific Keywords: When generating new custom keywords for a specific feature or section, they must be stored in a dedicated resource file following the naming convention {area}_keywords.robot (e.g., checkout_keywords.robot, billing_keywords.robot).
 Dependency Chain: Every {area}_keywords.robot file must explicitly import common_keywords.robot so that it inherits all foundational reusable assets.
