@@ -1,5 +1,4 @@
-IOVIO Guardrails Documentation (v0.12)
-This document outlines the mandatory standards for test automation within the IOVIO framework. Adherence to these guidelines ensures codebase consistency, script reliability, and framework compatibility.
+IOVIO Guardrails Documentation (v0.14)
 
 1. Keyword Management & Architecture
 Core Shared Assets: All globally reusable keywords (such as login procedures, browser setup, etc.) are centrally located in ../resources/common_keywords.robot.
@@ -14,6 +13,8 @@ Suite Setup: Must be explicitly defined as UI Login Via JWT.
 
 3. UI Interaction & Validation
 Navigation: When interacting with the navigation tab, prioritize using the LaunchApp keyword instead of using ClickText.
+Button Clicks: When clicking on common action buttons (e.g., "Save", "Next", "Submit"), scripts must include the partial_match=False argument to prevent unintended interactions with similarly named elements.
+Example: ClickText Save partial_match=False
 Visibility Handling: Do not assume elements are immediately interactable. If a field is nested, collapsed, or hidden, scripts must include explicit navigation steps (e.g., clicking "Details" or expanding panels) to expose the element before interaction.
 Element Selection: Do not include an asterisk (*) when selecting mandatory elements, even if the asterisk is visibly displayed in the UI next to the element name.
 Header Validation: The keyword VerifyPageHeader is strictly prohibited.
@@ -22,3 +23,7 @@ Header Validation: The keyword VerifyPageHeader is strictly prohibited.
 Parameter Restrictions: The clear=True argument is incompatible with QWord/QForce and is explicitly prohibited. Scripts containing this parameter will fail or result in unpredictable behavior.
 Clearing Fields: To clear an input field (e.g., for negative testing), pass the ${EMPTY} variable as the value.
 Example: TypeText First Name ${EMPTY}
+
+5. Syntax & Deprecations
+Return Statements: The [RETURN] setting has been deprecated in Robot Framework 7.0. All keywords returning values must use the modern RETURN statement instead.
+Example: Use RETURN ${value} instead of [RETURN] ${value}.
