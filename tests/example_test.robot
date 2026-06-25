@@ -1,7 +1,7 @@
 *** Settings ***
 Suite Setup            Setup Browser
 Suite Teardown         End suite
-Test Setup             Home
+Test Setup             Sales Home
 Library                QForce
 Resource               ../resources/common_keywords.robot
 
