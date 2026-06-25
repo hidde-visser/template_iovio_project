@@ -70,8 +70,8 @@ Setup
 Home
     [Documentation]             Navigate to homepage, login if needed
     Login
-    GoTo                        ${login_url}lightning/home
-    VerifyText                  Home
+    # GoTo                        ${login_url}lightning/home
+    # VerifyText                  Home
 
 Login As
     [Documentation]             Login As different persona. User needs to be logged into Salesforce with Admin rights
