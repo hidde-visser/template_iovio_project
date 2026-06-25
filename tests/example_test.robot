@@ -1,6 +1,7 @@
 *** Settings ***
-Suite Setup            OpenBrowser                 about:blank    chrome
-Test Setup             Home
+Suite Setup            Setup Browser
+Suite Teardown         End suite
+Test Setup           Home
 Library                QForce
 Resource               ../resources/common_keywords.robot
 
