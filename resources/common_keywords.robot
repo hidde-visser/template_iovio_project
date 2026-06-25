@@ -67,11 +67,12 @@ Login
 Setup       
     GoTo                        ${login_url}lightning/setup/SetupOneHome/home
 
-Home
+Sales Home
     [Documentation]             Navigate to homepage, login if needed
     Login
-    # GoTo                        ${login_url}lightning/home
-    # VerifyText                  Home
+    LaunchApp                   Sales
+    GoTo                        ${login_url}/lightning/page/home
+    VerifyText                  Home    tag=span
 
 Login As
     [Documentation]             Login As different persona. User needs to be logged into Salesforce with Admin rights
