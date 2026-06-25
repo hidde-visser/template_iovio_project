@@ -69,6 +69,7 @@ Setup
 
 Home
     [Documentation]             Navigate to homepage, login if needed
+    Login
     GoTo                        ${login_url}lightning/home
     VerifyText                  Home
 
