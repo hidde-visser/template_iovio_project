@@ -41,7 +41,7 @@ Initialize Salesforce Session
     ...                         session and thread, so context accumulates across steps.
 
     # ── Step 1: Browser + Salesforce login ───────────────────────────────────
-    ${token}=                   JwtAuthenticate             ${AFclient_id}              ${username}                 ${AFprivate_key}
+    ${token}=                   JwtAuthenticate             ${client_id}              ${username}                 ${server_key}
     ${instanceUrl}=             Get Instance Url
     Set Suite Variable          ${SUITE_TOKEN}              ${token}
     Set Suite Variable          ${SUITE_INSTANCE_URL}       ${instanceUrl}
@@ -53,9 +53,9 @@ Initialize Salesforce Session
     # adds a delay of 0.3 between keywords. This is helpful in cloud with limited resources.
     SetConfig                   Delay                       0.1
     JwtLogin
-    ${CLEAN_API_KEY}=           String.Strip String         RsXATKf3Qrrthmu8p4jWTFKaXMF4XFlHTg6BrqnkyvElVFzVm9Gd
-    ${CLEAN_ORG}=               String.Strip String         47405
-    ${CLEAN_WSPACE}=            String.Strip String         0f60e933-1e83-4a8f-9421-da560c997824
+    ${CLEAN_API_KEY}=           String.Strip String         2hMLGjDMpNBw9LhwumpyQCtSBKTxBJw3XpVtzsmc9skRvEWMZoiZ
+    ${CLEAN_ORG}=               String.Strip String         583
+    ${CLEAN_WSPACE}=            String.Strip String         afc3a923-9879-42fc-b653-d37ab3021e43
     Set Suite Variable          ${CLEAN_API_KEY}            ${CLEAN_API_KEY}
     Set Suite Variable          ${CLEAN_ORG}                ${CLEAN_ORG}
     Set Suite Variable          ${CLEAN_WSPACE}             ${CLEAN_WSPACE}
