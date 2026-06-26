@@ -22,3 +22,13 @@ Library                ../resources/ExplorationSessionLibrary.py
 Library                ../resources/SelfHealingLibrary.py
 Resource               ../resources/selfhealing.robot
 Suite Setup            Initialize Salesforce Session
+
+
+*** Test Cases ***
+BasicText
+    [Documentation]    Standard Salesforce test. Self-healing is invisible to the author.
+    ...                If any actionable keyword drifts (locator change, timing issue),
+    ...                the surgeon corrects it automatically and logs a WARN in the report.
+    #SelfHeal           True
+    ClickText          Leads                       partial_match=false    anchor=Opportunities
+    ClickText          New
