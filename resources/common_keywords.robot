@@ -103,16 +103,3 @@ Global search and select type
     # ClickElement              //button[contains(@aria-label,'Search')]
     TypeText                    Search...                   ${name}
     ClickElement                //span[@title\='${name}']/ancestor::div[@class\='instant-results-list']//span[text()\='${type}']
-
-Capture Page Elements
-    [Documentation]             Captures the live page DOM, cleanses it, names it contextually,
-    ...                         saves it to a JSON file on disk, and returns the absolute file path.
-    ${body_html}=               Get Attribute               //body                      outerHTML
-    ${json_output}=             Parse Elements From HTML    ${body_html}
-    ${file_name}=               Extract Page Name           ${json_output}
-    ${ts}=                      Get Current Date            result_format=%Y%m%d_%H%M%S
-
-    ${target_path}=             Set Variable                ${OUTPUT_DIR}/${file_name}_${ts}.json
-    Create File                 ${target_path}              ${json_output}
-
-    RETURN                      ${target_path}
