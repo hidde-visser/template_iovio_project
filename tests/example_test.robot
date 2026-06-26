@@ -29,6 +29,11 @@ BasicText
     [Documentation]    Standard Salesforce test. Self-healing is invisible to the author.
     ...                If any actionable keyword drifts (locator change, timing issue),
     ...                the surgeon corrects it automatically and logs a WARN in the report.
-    #SelfHeal           True
-    ClickText          Leads                       partial_match=false    anchor=Opportunities
-    ClickText          New
+    SelfHeal           True
+    
+    ClickText    Campaigns
+    ClickText    New
+    UseModal    On
+    TypeText     Campaign Name*   Test new Campaign
+    PickList    Type    Webinar
+    PickList    Status    Planning
