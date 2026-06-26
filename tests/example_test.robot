@@ -36,4 +36,9 @@ BasicText
     UseModal    On
     TypeText     Campaign Name*   Test new Campaign
     PickList    Type    Webinar
-    PickList    Status    Planning
+    PickList    Status    Planned
+
+    ClickText    CRT Test Campaign
+    ClickText    Delete
+    UseModal    On
+    VerifyText    Delete Campaign
