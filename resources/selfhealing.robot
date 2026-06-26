@@ -18,15 +18,11 @@ Library                         RequestsLibrary
 Library                         DomParserLibrary.py
 Library                         AgentJsonParser.py
 Resource                        GeminiHelp.robot
-Resource                        Govee.robot
 
 *** Variables ***
 # IMPORTANT: Please read the readme.txt to understand needed variables and how to handle them!!
 ${BROWSER}                      chrome
 ${SELF_HEALING_ENABLED}    False
-# ══════════════════════════════════════════════════════════════════════════════
-# SUITE SETUP — call this as your Suite Setup in any consumer test suite
-# ══════════════════════════════════════════════════════════════════════════════
 
 *** Keywords ***
 
@@ -39,7 +35,6 @@ Initialize Salesforce Session
     ...
     ...                         All subsequent calls to Run With Healing reuse the same
     ...                         session and thread, so context accumulates across steps.
-
     # ── Step 1: Browser + Salesforce login ───────────────────────────────────
     ${token}=                   JwtAuthenticate             ${client_id}              ${username}                 ${server_key}
     ${instanceUrl}=             Get Instance Url
@@ -50,7 +45,8 @@ Initialize Salesforce Session
     SetConfig                   LineBreak                   ${EMPTY}                    #\ue000
     Evaluate                    random.seed()               random                      # initialize random generator
     SetConfig                   DefaultTimeout              10s                         #sometimes salesforce is slow
-    # adds a delay of 0.3 between keywords. This is helpful in cloud with limited resources.
+    # adds a delay of 0.3 between keywords.
+    # This is helpful in cloud with limited resources.
     SetConfig                   Delay                       0.1
     JwtLogin
     ${CLEAN_API_KEY}=           String.Strip String         ${CopadoAIApi}
@@ -62,7 +58,6 @@ Initialize Salesforce Session
     SelfHeal           ${SELF_HEALING_ENABLED} 
     # ── Step 2: Persistent HTTP session to Copado AI gateway ─────────────────
     # The session alias "CopadoSession" is expected by GeminiHelp keywords.
-
     ${headers}=                 Create Dictionary
     ...                         accept=application/json
     ...                         X-Authorization=${CLEAN_API_KEY}
@@ -71,13 +66,6 @@ Initialize Salesforce Session
 
     # Persistent session auto-forwards session identity traits matching the browser archetype
     Create Session              alias=CopadoSession         url=https://copadogpt-api.robotic.copado.com            headers=${headers}
-    Create Govee OpenAPI Session
-
-    # ── Step 3: Create dialogue thread ───────────────────────────────────────
-
-
-
-
 
 
     # ══════════════════════════════════════════════════════════════════════════════
@@ -225,343 +213,15 @@ MouseUp
     Run With Healing            MouseUp                     @{args}    &{kwargs}
 
 
-
-
-    # ══════════════════════════════════════════════════════════════════════════════
-    # CORE DISPATCHER
-    # ══════════════════════════════════════════════════════════════════════════════
-
-Run With Healing REAL
-    [Documentation]             Internal dispatcher used by every wrapped keyword.
-    ...
-    ...                         Attempt 1: runs the QForce keyword normally.
-    ...                         On failure:
-    ...                         - Captures screenshot (LogScreenshot) and DOM snapshot
-    ...                         (Capture Page Elements from common.robot).
-    ...                         - Wraps the failed keyword into a minimal step dict so
-    ...                         Resolve Step Failure Stable can build its surgeon prompt.
-    ...                         - Calls Resolve Step Failure Stable (GeminiHelp.robot),
-    ...                         which attaches the DOM, sends the multimodal message,
-    ...                         and returns the raw AI reply.
-    ...                         - Parses the reply with Extract Surgeon JSON Reply
-    ...                         (GeminiHelp.robot -> AgentJsonParser.parse_surgeon_reply).
-    ...                         - Extracts the first corrected action via the Python function
-    ...                         AgentJsonParser.extract_first_action_from_step.
-    ...                         - Executes the corrected keyword.
-    ...                         If the corrected step also fails, the test fails cleanly
-    ...                         with full error context from both attempts.
-    [Arguments]                 ${kw}                       @{args}    &{kwargs}
-    ${healing_active}=          Get Variable Value          ${SELF_HEALING_ENABLED}     ${True}
-
-    IF                          not ${healing_active}
-        # Pass-through mode: run directly, fail hard on error.
-        Run Keyword             QForce.${kw}            @{args}                     &{kwargs}
-        RETURN
-    END
-    # ── Attempt 1: normal execution ──────────────────────────────────────────
-    ${status}    ${message}=    Run Keyword And Ignore Error    QForce.${kw}    @{args}    &{kwargs}
-    IF                          '${status}' == 'PASS'
-        RETURN
-    END
-
-    Log To Console                         '${kw}' FAILED: ${message}. Activating surgeon...                     
-    Create Dialogue Thread Stable                           test
-
-    # ── Step 3: Capture visual and structural artifacts ───────────────────────
-    ${screenshot_path}=         LogScreenshot               fullpage=False
-    ${dom_json_path}=           Capture Page Elements
-
-    # ── Step 4: Build a minimal step dict for Resolve Step Failure Stable ────
-    # Resolve Step Failure Stable expects a "failed_step" dict with at least
-    # an "intent" key and a "strategies" key (same shape as the agentic loop).
-    # We construct the minimal valid shape here from the keyword and args.
-    ${action_dict}=             Create Dictionary
-    ...                         keyword=${kw}
-    ...                         args=${args}
-    ...                         kwargs=${kwargs}
-
-    ${strategy_sequence}=       Create List                 ${action_dict}
-    ${strategies_list}=         Create List                 ${strategy_sequence}
-
-    ${failed_step}=             Create Dictionary
-    ...                         intent=Self-healing: ${kw} ${args}
-    ...                         strategies=${strategies_list}
-    ...                         is_risky=${False}
-
-    # Empty remaining steps and history for the plug-and-play context.
-    @{empty_remaining}=         Create List
-    ${empty_history_json}=      Set Variable                []
-
-    # ── Step 5: Call Resolve Step Failure Stable ──────────────────────────────
-    # This keyword (GeminiHelp.robot) handles:
-    #                           - Attaching the DOM JSON file to the dialogue thread
-    #                           - Building the full surgeon prompt
-    #                           - Sending the multimodal message (screenshot + prompt) via
-    #                           Send Multimodal Message To Agent Stable
-    #                           - Waiting for and retrieving the AI reply
-    #                           - Returning the raw AI reply content
-    ${ai_reply}=                Resolve Step Failure Stable
-    ...                         test
-    ...                         ${failed_step}
-    ...                         ${message}
-    ...                         ${empty_remaining}
-    ...                         ${dom_json_path}
-    ...                         ${screenshot_path}
-    ...                         ${empty_history_json}
-    ...                         Self-healing single keyword: ${kw}
-    ...                         failure_mode=HARD_KEYWORD_ERROR
-
-    # ── Step 6: Parse surgeon reply ───────────────────────────────────────────
-    # Extract Surgeon JSON Reply calls AgentJsonParser.parse_surgeon_reply,
-    # which returns a DICT with keys: escalate, recovery_steps, corrected_steps.
-    ${surgeon_payload}=         Extract Surgeon JSON Reply                              ${ai_reply}
-
-    # Check for business-logic escalation.
-    ${escalate}=                Get From Dictionary         ${surgeon_payload}          escalate                    default=${False}
-    IF                          ${escalate}
-        ${reason}=              Get From Dictionary         ${surgeon_payload}          escalation_reason           default=No reason provided
-        Fail                    [SelfHealing] Surgeon escalated: ${reason}. Original error: ${message}
-    END
-
-    # ── Step 7: Extract ALL strategies and loop until one passes ─────────────
-    ${raw_corrected}=           Get From Dictionary         ${surgeon_payload}          corrected_steps             default=${NONE}
-    ${corrected_is_none}=       Evaluate                    $raw_corrected is None
-    IF                          ${corrected_is_none}
-        Fail                    [SelfHealing] Surgeon returned no corrected_steps for '${kw}'. Original error: ${message}
-    END
-    ${corrected_is_list}=       Evaluate                    isinstance($raw_corrected, list) and len($raw_corrected) > 0
-    IF                          not ${corrected_is_list}
-        Fail                    [SelfHealing] Surgeon corrected_steps is empty or not a list for '${kw}'. Original error: ${message}
-    END
-
-    ${first_step}=              Set Variable                ${raw_corrected[0]}
-
-    # Pull the full strategies list from the first step.
-    ${strategies}=              Get From Dictionary         ${first_step}               strategies                  default=${NONE}
-    ${has_strategies}=          Evaluate                    isinstance($strategies, list) and len($strategies) > 0
-    IF                          not ${has_strategies}
-        Fail                    [SelfHealing] No strategies found in surgeon corrected_steps for '${kw}'. Original error: ${message}
-    END
-
-    # ── Step 8: Loop every strategy until one passes ──────────────────────
-    ${healed}=                  Set Variable                ${False}
-    ${last_message}=            Set Variable                ${message}
-    ${remaining_strategies}=    Create List
-        SetConfig                   DefaultTimeout              4s
-
-    FOR                         ${strategy}                 IN                          @{strategies}
-            #Initial retry in case of a timing issue
-        ${status}    ${message}=    Run Keyword And Ignore Error    QForce.${kw}    @{args}    &{kwargs}
-    IF    '${status}' == 'PASS'
-        Log To Console      [SelfHealing] Timing retry succeeded for '${kw}'. Consider adding an IsText step with a timeout before this keyword to avoid future failures.
-        ${healed}=          Set Variable                ${True}
-        BREAK
-    END
-        # Each strategy is a list of action dicts. Take the first action.
-        ${action}=              Evaluate                    AgentJsonParser.extract_first_action_from_step({'strategies': [$strategy]})
-        ${action_is_none}=      Evaluate                    $action is None
-        IF                      ${action_is_none}
-            CONTINUE
-        END
-
-        ${corrected_kw}=        Get From Dictionary         ${action}                   keyword
-        ${corrected_args}=      Get From Dictionary         ${action}                   args
-        ${corrected_kwargs}=    Get From Dictionary         ${action}                   kwargs
-        ${corrected_kwargs}=    Sanitize Kwargs             ${corrected_kwargs}
-
-        ${safe_args}=           Create List
-        FOR                     ${arg}                      IN                          @{corrected_args}
-            ${is_str}=          Evaluate                    isinstance($arg, str)
-            IF                  ${is_str}
-                ${arg}=         Evaluate                    AgentJsonParser.escape_xpath_arg($arg)
-            END
-            Append To List      ${safe_args}                ${arg}
-        END
-
-        Log To Console          [SelfHealing] Trying strategy: ${corrected_kw} args=${safe_args}
-
-        ${status2}    ${last_message}=    Run Keyword And Ignore Error    Qforce.${corrected_kw}    @{safe_args}    &{corrected_kwargs}
-
-        IF    '${status2}' == 'PASS'
-            ${args_str}=        Convert To String           ${safe_args}
-            ${kwargs_str}=      Convert To String           ${corrected_kwargs}
-            Log To Console      HEALED: '${kw}' corrected to: ${corrected_kw} ${args_str} ${kwargs_str}
-            Log To Console      Original error: ${message}
-            # Store remaining strategies (everything after this one) for the fallback keyword.
-            ${current_idx}=     Evaluate                    $strategies.index($strategy)
-            ${remaining_strategies}=    Evaluate            $strategies[$current_idx + 1:]
-            Set Suite Variable  ${HEALING_REMAINING_STRATEGIES}         ${remaining_strategies}
-            Set Suite Variable  ${HEALING_REMAINING_KW}                 ${kw}
-            Set Suite Variable  ${HEALING_REMAINING_IDX}                0
-            ${healed}=          Set Variable                ${True}
-            BREAK
-        END
-    END
-        SetConfig                   DefaultTimeout              10s
-
-    IF    not ${healed}
-        Fail                    [SelfHealing] All ${strategies.__len__()} strategies exhausted for '${kw}'. Last error: ${last_message}
-    END
-# Run With Healing
-#     [Documentation]             Internal dispatcher used by every wrapped keyword.
-#     ...
-#     ...                         Attempt 1: runs the QForce keyword normally.
-#     ...                         On failure:
-#     ...                         - Captures screenshot (LogScreenshot) and DOM snapshot
-#     ...                         (Capture Page Elements from common.robot).
-#     ...                         - Wraps the failed keyword into a minimal step dict so
-#     ...                         Resolve Step Failure Stable can build its surgeon prompt.
-#     ...                         - Calls Resolve Step Failure Stable (GeminiHelp.robot),
-#     ...                         which attaches the DOM, sends the multimodal message,
-#     ...                         and returns the raw AI reply.
-#     ...                         - Parses the reply with Extract Surgeon JSON Reply
-#     ...                         (GeminiHelp.robot -> AgentJsonParser.parse_surgeon_reply).
-#     ...                         - Extracts the first corrected action via the Python function
-#     ...                         AgentJsonParser.extract_first_action_from_step.
-#     ...                         - Executes the corrected keyword.
-#     ...                         If the corrected step also fails, the test fails cleanly
-#     ...                         with full error context from both attempts.
-#     [Arguments]                 ${kw}                       @{args}    &{kwargs}
-
-#     # ── Attempt 1: normal execution ──────────────────────────────────────────
-#     ${status}    ${message}=    Run Keyword And Ignore Error    QForce.${kw}    @{args}    &{kwargs}
-#     IF                          '${status}' == 'PASS'
-#         RETURN
-#     END
-
-#     Log To Console                         '${kw}' FAILED: ${message}. Activating surgeon...                     
-
-#     # ── Step 3: Capture visual and structural artifacts ───────────────────────
-#     ${screenshot_path}=         LogScreenshot               fullpage=False
-#     ${dom_json_path}=           Capture Page Elements
-
-#     # ── Step 4: Build a minimal step dict for Resolve Step Failure Stable ────
-#     # Resolve Step Failure Stable expects a "failed_step" dict with at least
-#     # an "intent" key and a "strategies" key (same shape as the agentic loop).
-#     # We construct the minimal valid shape here from the keyword and args.
-#     ${action_dict}=             Create Dictionary
-#     ...                         keyword=${kw}
-#     ...                         args=${args}
-#     ...                         kwargs=${kwargs}
-
-#     ${strategy_sequence}=       Create List                 ${action_dict}
-#     ${strategies_list}=         Create List                 ${strategy_sequence}
-
-#     ${failed_step}=             Create Dictionary
-#     ...                         intent=Self-healing: ${kw} ${args}
-#     ...                         strategies=${strategies_list}
-#     ...                         is_risky=${False}
-
-#     # Empty remaining steps and history for the plug-and-play context.
-#     @{empty_remaining}=         Create List
-#     ${empty_history_json}=      Set Variable                []
-
-#     # ── Step 5: Call Resolve Step Failure Stable ──────────────────────────────
-#     # This keyword (GeminiHelp.robot) handles:
-#     #                           - Attaching the DOM JSON file to the dialogue thread
-#     #                           - Building the full surgeon prompt
-#     #                           - Sending the multimodal message (screenshot + prompt) via
-#     #                           Send Multimodal Message To Agent Stable
-#     #                           - Waiting for and retrieving the AI reply
-#     #                           - Returning the raw AI reply content
-#     ${ai_reply}=                Resolve Step Failure Stable
-#     ...                         test
-#     ...                         ${failed_step}
-#     ...                         ${message}
-#     ...                         ${empty_remaining}
-#     ...                         ${dom_json_path}
-#     ...                         ${screenshot_path}
-#     ...                         ${empty_history_json}
-#     ...                         Self-healing single keyword: ${kw}
-#     ...                         failure_mode=HARD_KEYWORD_ERROR
-
-#     # ── Step 6: Parse surgeon reply ───────────────────────────────────────────
-#     # Extract Surgeon JSON Reply calls AgentJsonParser.parse_surgeon_reply,
-#     # which returns a DICT with keys: escalate, recovery_steps, corrected_steps.
-#     ${surgeon_payload}=         Extract Surgeon JSON Reply                              ${ai_reply}
-
-#     # Check for business-logic escalation.
-#     ${escalate}=                Get From Dictionary         ${surgeon_payload}          escalate                    default=${False}
-#     IF                          ${escalate}
-#         ${reason}=              Get From Dictionary         ${surgeon_payload}          escalation_reason           default=No reason provided
-#         Fail                    [SelfHealing] Surgeon escalated: ${reason}. Original error: ${message}
-#     END
-
-#     # ── Step 7: Extract first corrected action ────────────────────────────────
-#     # corrected_steps is a list of step dicts (same shape as architect steps).
-#     # We pull the first step and then call the Python function
-#     # AgentJsonParser.extract_first_action_from_step to drill into strategies.
-#     ${raw_corrected}=           Get From Dictionary         ${surgeon_payload}          corrected_steps             default=${NONE}
-#     ${corrected_is_none}=       Evaluate                    $raw_corrected is None
-#     IF                          ${corrected_is_none}
-#         Fail                    [SelfHealing] Surgeon returned no corrected_steps for '${kw}'. Original error: ${message}
-#     END
-#     ${corrected_is_list}=       Evaluate                    isinstance($raw_corrected, list) and len($raw_corrected) > 0
-#     IF                          not ${corrected_is_list}
-#         Fail                    [SelfHealing] Surgeon corrected_steps is empty or not a list for '${kw}'. Original error: ${message}
-#     END
-
-#     ${first_step}=              Set Variable                ${raw_corrected[0]}
-
-#     # Call the Python function directly via Evaluate.
-#     # This is the correct way to use extract_first_action_from_step.
-#     # It is a Python function in AgentJsonParser, NOT a Robot Framework keyword.
-#     ${action}=                  Evaluate                    AgentJsonParser.extract_first_action_from_step($first_step)
-
-#     ${action_is_none}=          Evaluate                    $action is None
-#     IF                          ${action_is_none}
-#         Fail                    [SelfHealing] Could not extract a valid action from surgeon reply for '${kw}'. Original error: ${message}
-#     END
-
-#     ${corrected_kw}=            Get From Dictionary         ${action}                   keyword
-#     ${corrected_args}=          Get From Dictionary         ${action}                   args
-#     ${corrected_kwargs}=        Get From Dictionary         ${action}                   kwargs
-
-#     # Sanitize kwargs (convert booleans to strings for RF dispatch).
-#     ${corrected_kwargs}=        Sanitize Kwargs             ${corrected_kwargs}
-
-#     # Escape any XPath arguments at dispatch time.
-#     ${safe_args}=               Create List
-#     FOR                         ${arg}                      IN                          @{corrected_args}
-#         ${is_str}=              Evaluate                    isinstance($arg, str)
-#         IF                      ${is_str}
-#             ${arg}=             Evaluate                    AgentJsonParser.escape_xpath_arg($arg)
-#         END
-#         Append To List          ${safe_args}                ${arg}
-#     END
-
-#     Log To Console                           Surgeon proposes: ${corrected_kw} args=${safe_args}           
-
-# # ── Step 8: Execute corrected step ───────────────────────────────────────
-#     ${status2}    ${message2}=    Run Keyword And Ignore Error          ${corrected_kw}    @{safe_args}    &{corrected_kwargs}
-
-#     IF    '${status2}' == 'PASS'
-#         ${args_str}=        Convert To String    ${safe_args}
-#         ${kwargs_str}=      Convert To String    ${corrected_kwargs}
-#         Log To Console    HEALED: '${kw}' corrected to: ${corrected_kw} ${args_str} ${kwargs_str}                    
-#         Log To Console    Original error: ${message}
-#         RETURN
-#     END
-
-#     Fail
-#     ...    [SelfHealing] UNRECOVERABLE: '${kw}' failed AND surgeon's '${corrected_kw}' also failed.
-#     ...    Original error: ${message}. Surgeon error: ${message2}
-
-
-
 # ── Fallback Keyword: Execute Next Healing Strategy ───────────────────────────
 # Call this when a healed step appeared to pass but caused a bad state downstream.
 # It picks up the next unused strategy from the suite-level list and runs it.
-# If no strategies remain, it logs a warning and does NOT fail, so the test can
-# continue or be handled by the caller.
 Execute Next Healing Strategy
     [Documentation]             Executes the next available surgeon strategy from the suite-level
-    ...                         remaining strategies list. Intended for cases where the previously
-    ...                         healed step falsely passed (e.g. click intercepted by wrong element).
-    ...                         Advances the suite-level index each call. Logs a warning when
-    ...                         no strategies remain instead of failing, so the caller decides.
-
-     ${has_remaining}=    Evaluate    isinstance($HEALING_REMAINING_STRATEGIES, list) and len($HEALING_REMAINING_STRATEGIES) > 0
+    ...                         remaining strategies list.
+    ...                         Advances the suite-level index each call.
+    ...                         Logs a warning when no strategies remain instead of failing.
+    ${has_remaining}=    Evaluate    isinstance($HEALING_REMAINING_STRATEGIES, list) and len($HEALING_REMAINING_STRATEGIES) > 0
 
     IF    not ${has_remaining}
         Log To Console          [SelfHealing Fallback] No remaining strategies registered. Nothing to execute.
@@ -601,7 +261,7 @@ Execute Next Healing Strategy
         Append To List          ${safe_args}                ${arg}
     END
 
-    Log To Console              [SelfHealing Fallback] Executing next strategy [${idx}]: ${corrected_kw} args=${safe_args}
+    Log To Console              [SelfHealing Fallback] Executing next strategy [${idx}]: ${corrected_kw} args\=${safe_args}
 
     ${status}    ${fb_message}=    Run Keyword And Ignore Error    ${corrected_kw}    @{safe_args}    &{corrected_kwargs}
 
@@ -617,14 +277,7 @@ Execute Next Healing Strategy
 
 SelfHeal
     [Documentation]             Master switch for the self-healing pipeline.
-    ...
-    ...                         Sets a suite-level boolean that Run With Healing
-    ...                         checks before engaging the AI surgeon.
-    ...
-    ...                         Usage:
-    ...                             SelfHeal    true      # enables healing
-    ...                             SelfHeal    False     # disables healing (pass-through only)
-    ...                             SelfHeal    TRUE      # casing is ignored
+    ...                         Sets a suite-level boolean that Run With Healing checks.
     [Arguments]                 ${enabled}
 
     ${normalized}=              Convert To Lowercase        ${enabled}
@@ -641,39 +294,18 @@ SelfHeal
 
 Run With Healing 
     [Documentation]             Internal dispatcher used by every wrapped keyword.
-    ...
     ...                         Attempt 1: runs the QForce keyword normally.
-    ...                         On failure:
-    ...                         - Captures screenshot (LogScreenshot) and DOM snapshot
-    ...                         (Capture Page Elements from common.robot).
-    ...                         - Wraps the failed keyword into a minimal step dict so
-    ...                         Resolve Step Failure Stable can build its surgeon prompt.
-    ...                         - Calls Resolve Step Failure Stable (GeminiHelp.robot),
-    ...                         which attaches the DOM, sends the multimodal message,
-    ...                         and returns the raw AI reply.
-    ...                         - Parses the reply with Extract Surgeon JSON Reply
-    ...                         (GeminiHelp.robot -> AgentJsonParser.parse_surgeon_reply).
-    ...                         - Extracts the first corrected action via the Python function
-    ...                         AgentJsonParser.extract_first_action_from_step.
-    ...                         - Executes the corrected keyword.
-    ...                         If the corrected step also fails, the test fails cleanly
-    ...                         with full error context from both attempts.
-    ...
-    ...                         Govee integration:
-    ...                         - Green  = keyword passed
-    ...                         - Red    = keyword failed
-    ...                         - Blue   = surgeon (Resolve Step Failure Stable) is about to run
+    ...                         On failure: engaging Resolve Step Failure Stable (GeminiHelp.robot)
+    ...                         to execute a multi-strategy heal operation via the AI surgeon.
     [Arguments]                 ${kw}                       @{args}    &{kwargs}
     ${healing_active}=          Get Variable Value          ${SELF_HEALING_ENABLED}     ${True}
 
     IF                          not ${healing_active}
-        # Pass-through mode: run directly, signal result via Govee.
+        # Pass-through mode: run directly, fail hard on error.
         ${status}    ${message}=    Run Keyword And Ignore Error    QForce.${kw}    @{args}    &{kwargs}
         IF    '${status}' == 'PASS'
-            Set Pro Curtains Color    Green
             RETURN
         ELSE
-            Set Pro Curtains Color    Red
             Fail    ${message}
         END
     END
@@ -681,11 +313,9 @@ Run With Healing
     # ── Attempt 1: normal execution ──────────────────────────────────────────
     ${status}    ${message}=    Run Keyword And Ignore Error    QForce.${kw}    @{args}    &{kwargs}
     IF                          '${status}' == 'PASS'
-        Set Pro Curtains Color    Green
         RETURN
     END
 
-    Set Pro Curtains Color    Red
     Log To Console                         '${kw}' FAILED: ${message}. Activating surgeon...
 
     Create Dialogue Thread Stable                           test
@@ -712,11 +342,6 @@ Run With Healing
     @{empty_remaining}=         Create List
     ${empty_history_json}=      Set Variable                []
 
-    # ── Step 5: Signal Blue before calling Resolve Step Failure Stable ────────
-    #Set Pro Curtains Color    Blue
-    Trigger Pro Curtain Scene Matrix                        30861     20697
-
-
     # ── Step 5: Call Resolve Step Failure Stable ──────────────────────────────
     ${ai_reply}=                Resolve Step Failure Stable
     ...                         test
@@ -736,7 +361,6 @@ Run With Healing
     ${escalate}=                Get From Dictionary         ${surgeon_payload}          escalate                    default=${False}
     IF                          ${escalate}
         ${reason}=              Get From Dictionary         ${surgeon_payload}          escalation_reason           default=No reason provided
-        Set Pro Curtains Color    Red
         Fail                    [SelfHealing] Surgeon escalated: ${reason}. Original error: ${message}
     END
 
@@ -744,12 +368,10 @@ Run With Healing
     ${raw_corrected}=           Get From Dictionary         ${surgeon_payload}          corrected_steps             default=${NONE}
     ${corrected_is_none}=       Evaluate                    $raw_corrected is None
     IF                          ${corrected_is_none}
-        Set Pro Curtains Color    Red
         Fail                    [SelfHealing] Surgeon returned no corrected_steps for '${kw}'. Original error: ${message}
     END
     ${corrected_is_list}=       Evaluate                    isinstance($raw_corrected, list) and len($raw_corrected) > 0
     IF                          not ${corrected_is_list}
-        Set Pro Curtains Color    Red
         Fail                    [SelfHealing] Surgeon corrected_steps is empty or not a list for '${kw}'. Original error: ${message}
     END
 
@@ -759,7 +381,6 @@ Run With Healing
     ${strategies}=              Get From Dictionary         ${first_step}               strategies                  default=${NONE}
     ${has_strategies}=          Evaluate                    isinstance($strategies, list) and len($strategies) > 0
     IF                          not ${has_strategies}
-        Set Pro Curtains Color    Red
         Fail                    [SelfHealing] No strategies found in surgeon corrected_steps for '${kw}'. Original error: ${message}
     END
 
@@ -767,20 +388,18 @@ Run With Healing
     ${healed}=                  Set Variable                ${False}
     ${last_message}=            Set Variable                ${message}
     ${remaining_strategies}=    Create List
-        SetConfig                   DefaultTimeout              4s
+    SetConfig                   DefaultTimeout              4s
 
     FOR                         ${strategy}                 IN                          @{strategies}
-            #Initial retry in case of a timing issue
+        # Initial retry in case of a timing issue
         ${status}    ${message}=    Run Keyword And Ignore Error    QForce.${kw}    @{args}    &{kwargs}
-    IF    '${status}' == 'PASS'
-        Log To Console      [SelfHealing] Timing retry succeeded for '${kw}'. Consider adding an IsText step with a timeout before this keyword to avoid future failures.
-        Set Pro Curtains Color    Green
-        ${healed}=          Set Variable                ${True}
-        BREAK
-    ELSE
-        Set Pro Curtains Color    Red
-    END
-        # Each strategy is a list of action dicts. Take the first action.
+        IF    '${status}' == 'PASS'
+            Log To Console      [SelfHealing] Timing retry succeeded for '${kw}'.
+            Log To Console      Consider adding an IsText step with a timeout before this keyword to avoid future failures.
+            ${healed}=          Set Variable                ${True}
+            BREAK
+        END
+        # Each strategy is a list of action dicts.
         ${action}=              Evaluate                    AgentJsonParser.extract_first_action_from_step({'strategies': [$strategy]})
         ${action_is_none}=      Evaluate                    $action is None
         IF                      ${action_is_none}
@@ -801,12 +420,11 @@ Run With Healing
             Append To List      ${safe_args}                ${arg}
         END
 
-        Log To Console          [SelfHealing] Trying strategy: ${corrected_kw} args=${safe_args}
+        Log To Console          [SelfHealing] Trying strategy: ${corrected_kw} args\=${safe_args}
 
         ${status2}    ${last_message}=    Run Keyword And Ignore Error    Qforce.${corrected_kw}    @{safe_args}    &{corrected_kwargs}
 
         IF    '${status2}' == 'PASS'
-            Set Pro Curtains Color    Green
             ${args_str}=        Convert To String           ${safe_args}
             ${kwargs_str}=      Convert To String           ${corrected_kwargs}
             Log To Console      HEALED: '${kw}' corrected to: ${corrected_kw} ${args_str} ${kwargs_str}
@@ -815,23 +433,14 @@ Run With Healing
             ${current_idx}=     Evaluate                    $strategies.index($strategy)
             ${remaining_strategies}=    Evaluate            $strategies[$current_idx + 1:]
             Set Suite Variable  ${HEALING_REMAINING_STRATEGIES}         ${remaining_strategies}
-            Set Suite Variable  ${HEALING_REMAINING_KW}                 ${kw}
+            Set Suite Variable  ${HEALING_REMAINING_KW}              ${kw}
             Set Suite Variable  ${HEALING_REMAINING_IDX}                0
             ${healed}=          Set Variable                ${True}
             BREAK
-        ELSE
-            Set Pro Curtains Color    Red
         END
     END
-        SetConfig                   DefaultTimeout              10s
+    SetConfig                   DefaultTimeout              10s
 
     IF    not ${healed}
-        Set Pro Curtains Color    Red
-        #Mad
-        Trigger Pro Curtain Scene Matrix                        30810     20646
-        #
-        #Trigger Pro Curtain Scene Matrix                        30841     20677
-
-
         Fail                    [SelfHealing] All ${strategies.__len__()} strategies exhausted for '${kw}'. Last error: ${last_message}
     END
