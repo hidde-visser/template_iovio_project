@@ -4,14 +4,7 @@ Documentation                   Example resource file with custom keywords. NOTE
 Library                         QForce
 Library                         String
 Library                         DateTime
-#Library                        ../resources/DomParserLibrary.py
-Library                         ../resources/DomParserLibrary.py
 Library                         OperatingSystem
-Library                         ../resources/ObjectSanitizer.py
-#Resource                       ../resources/MetadataRetrieval.robot
-Library                         ../resources/ExplorationSessionLibrary.py
-Resource                        ../resources/GeminiHelp.robot
-
 
 *** Variables ***
 ${browser}                      chrome
