@@ -97,7 +97,7 @@ Global search and select type
     TypeText                    Search...                   ${name}
     ClickElement                //span[@title\='${name}']/ancestor::div[@class\='instant-results-list']//span[text()\='${type}']
 
-Delete Record By Name
+Delete Record via API
     [Documentation]             Generic keyword to delete any Salesforce object record by its Name field
     ...                         via the REST API. Queries the record ID using SOQL, deletes the record,
     ...                         and verifies it no longer exists.
