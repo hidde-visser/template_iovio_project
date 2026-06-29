@@ -22,14 +22,5 @@ Example Test
     ClickText          Save                        partial_match=False
     VerifyText         Campaign "Test new Campaign" was created.
     ClickText          Details
-    VerifyText         Test new Campaign
-    ClickText          Campaigns
-    ClickText          Test new Campaign
-    ClickText          Show 8 more actions
-    ClickText          Delete
-    UseModal           On
-    VerifyText         Delete Campaign
-    VerifyText         Are you sure you want to delete this campaign?
-    ClickText          Delete
-    UseModal           Off
-    VerifyText         Campaign "Test new Campaign" was deleted
+    VerifyField        Campaign Name               Test new Campaign
+    [Teardown]         Delete Record via API       Campaign               Test new Campaign
