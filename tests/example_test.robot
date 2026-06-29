@@ -9,7 +9,7 @@ Test Setup             Sales Home
 
 
 *** Test Cases ***
-BasicText
+Example Test
     [Documentation]    Standard Salesforce test. Self-healing is invisible to the author.
     ...                If any actionable keyword drifts (locator change, timing issue),
     ...                the surgeon corrects it automatically and logs a WARN in the report.
