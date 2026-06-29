@@ -65,7 +65,7 @@ Login
     JwtAuthenticate    ${client_id}    ${username}    ${server_key}
     JwtLogin
 
-Setup       
+Setup
     GoTo                        ${login_url}lightning/setup/SetupOneHome/home
 
 Sales Home
@@ -96,3 +96,33 @@ Global search and select type
     # ClickElement              //button[contains(@aria-label,'Search')]
     TypeText                    Search...                   ${name}
     ClickElement                //span[@title\='${name}']/ancestor::div[@class\='instant-results-list']//span[text()\='${type}']
+
+Delete Record By Name
+    [Documentation]             Generic keyword to delete any Salesforce object record by its Name field
+    ...                         via the REST API. Queries the record ID using SOQL, deletes the record,
+    ...                         and verifies it no longer exists.
+    ...
+    ...                         *Arguments:*
+    ...                         - ${sobject}      : Salesforce API object name (e.g. Campaign, Account, Lead)
+    ...                         - ${record_name}  : The Name field value of the record to delete
+    ...
+    ...                         *Prerequisites:*
+    ...                         - JWT authentication must already be established before calling this keyword.
+    ...
+    ...                         *Example:*
+    ...                         | Delete Record By Name | Campaign | My Test Campaign |
+    ...                         | Delete Record By Name | Account  | Acme Corp        |
+    ...                         | Delete Record By Name | Lead     | John Doe         |
+    [Arguments]                 ${sobject}                  ${record_name}
+    # Step 1: Query the record ID by Name using SOQL
+    ${results}=                 QueryRecords
+    ...                         SELECT Id FROM ${sobject} WHERE Name \= '${record_name}' LIMIT 1
+    ${record_id}=               Set Variable                ${results}[records][0][Id]
+    Log                         Deleting ${sobject} record: ${record_name} (ID: ${record_id})
+    # Step 2: Delete the record via REST API
+    Delete Record               ${sobject}                  ${record_id}
+    # Step 3: Verify the record no longer exists
+    ${verify}=                  QueryRecords
+    ...                         SELECT Id FROM ${sobject} WHERE Id \= '${record_id}' LIMIT 1
+    Should Be Equal As Integers    ${verify}[totalSize]     0
+    Log                         Successfully deleted ${sobject}: ${record_name}
