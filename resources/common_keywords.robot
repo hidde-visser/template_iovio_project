@@ -126,3 +126,34 @@ Delete Record via API
     ...                         SELECT Id FROM ${sobject} WHERE Id \= '${record_id}' LIMIT 1
     Should Be Equal As Integers                             ${verify}[totalSize]        0
     Log                         Successfully deleted ${sobject}: ${record_name}
+
+Create Record Via API
+    [Documentation]             Generic keyword to create any Salesforce object record
+    ...                         via the REST API. Creates the record using the provided field
+    ...                         values, verifies it exists with the expected data, and returns
+    ...                         the newly created record ID.
+    ...
+    ...                         *Arguments:*
+    ...                         - ${sobject}                : Salesforce API object name (e.g. Campaign, Account, Lead)
+    ...                         - &{fields}                 : Dictionary of field API names and their values
+    ...                                                       (e.g. Name=My Campaign    Status=Planning)
+    ...
+    ...                         *Returns:*
+    ...                         - ${record_id}              : The Salesforce ID of the newly created record
+    ...
+    ...                         *Prerequisites:*
+    ...                         - JWT authentication must already be established before calling this keyword.
+    ...
+    ...                         *Example:*
+    ...                         | ${id}= | Create Record Via API | Campaign | Name=My Test Campaign | Status=Planning |
+    ...                         | ${id}= | Create Record Via API | Account  | Name=Acme Corp | BillingCity=San Francisco |
+    ...                         | ${id}= | Create Record Via API | Lead     | FirstName=John | LastName=Doe | Company=ACME |
+    [Arguments]                 ${sobject}                  &{fields}
+    # Step 1: Create the record via REST API using provided field values
+    ${record_id}=               Create Record               ${sobject}                  &{fields}
+    Log                         Created ${sobject} record with ID: ${record_id}
+    # Step 2: Verify the record exists and fields match expected values
+    Verify Record               ${sobject}                  ${record_id}                &{fields}
+    Log                         Successfully verified ${sobject} record: ${record_id}
+    # Step 3: Return the record ID for use in subsequent steps
+    RETURN                      ${record_id}
