@@ -33,26 +33,26 @@ Login
     ...
     ...                         *Prerequisites:*
     ...                         - ${client_id} must contain the Consumer Key from the Salesforce
-    ...                           External Client App (OAuth Settings tab).
+    ...                         External Client App (OAuth Settings tab).
     ...                         - ${username} must be the Salesforce username of the automation user.
     ...                         - ${server_key} must contain the RSA private key in PEM format,
-    ...                           matching the certificate uploaded to the External Client App.
-    ...                           Store this value as a sensitive/secret variable in CRT.
+    ...                         matching the certificate uploaded to the External Client App.
+    ...                         Store this value as a sensitive/secret variable in CRT.
     ...                         - The automation user must be pre-authorized via a Permission Set
-    ...                           assigned to the External Client App (Admin approved users).
+    ...                         assigned to the External Client App (Admin approved users).
     ...                         - A browser must already be open before calling this keyword
-    ...                           (e.g., via OpenBrowser).
+    ...                         (e.g., via OpenBrowser).
     ...
     ...                         *Authentication Flow:*
     ...                         1. JwtAuthenticate signs a JWT token using ${server_key} and
-    ...                            exchanges it for a Salesforce access token.
+    ...                         exchanges it for a Salesforce access token.
     ...                         2. JwtLogin uses that token to open an authenticated UI session
-    ...                            in the already-open browser window.
+    ...                         in the already-open browser window.
     ...
     ...                         *Connected App Setup Summary:*
     ...                         - Generate an RSA key pair (openssl genrsa / openssl req).
     ...                         - Create an External Client App in Salesforce Setup with
-    ...                           "Enable JWT Bearer Token Flow" checked.
+    ...                         "Enable JWT Bearer Token Flow" checked.
     ...                         - Upload the public certificate (server.crt) to the app.
     ...                         - Set Permitted Users to "Admin approved users are pre-authorized".
     ...                         - Assign the relevant Permission Set to the automation user.
@@ -62,7 +62,7 @@ Login
     ...                         | Login |
     ...
     ...                         *See Also:* JwtAuthenticate, JwtLogin, ClientAuthenticate
-    JwtAuthenticate    ${client_id}    ${username}    ${server_key}
+    JwtAuthenticate             ${client_id}                ${username}                 ${server_key}
     JwtLogin
 
 Setup
@@ -73,7 +73,7 @@ Sales Home
     Login
     LaunchApp                   Sales
     GoTo                        ${login_url}/lightning/page/home
-    VerifyText                  Home    tag=span
+    VerifyText                  Home                        tag=span
 
 Login As
     [Documentation]             Login As different persona. User needs to be logged into Salesforce with Admin rights
@@ -103,16 +103,16 @@ Delete Record By Name
     ...                         and verifies it no longer exists.
     ...
     ...                         *Arguments:*
-    ...                         - ${sobject}      : Salesforce API object name (e.g. Campaign, Account, Lead)
-    ...                         - ${record_name}  : The Name field value of the record to delete
+    ...                         - ${sobject}                : Salesforce API object name (e.g. Campaign, Account, Lead)
+    ...                         - ${record_name}            : The Name field value of the record to delete
     ...
     ...                         *Prerequisites:*
     ...                         - JWT authentication must already be established before calling this keyword.
     ...
     ...                         *Example:*
     ...                         | Delete Record By Name | Campaign | My Test Campaign |
-    ...                         | Delete Record By Name | Account  | Acme Corp        |
-    ...                         | Delete Record By Name | Lead     | John Doe         |
+    ...                         | Delete Record By Name | Account                       | Acme Corp                 |
+    ...                         | Delete Record By Name | Lead                          | John Doe                  |
     [Arguments]                 ${sobject}                  ${record_name}
     # Step 1: Query the record ID by Name using SOQL
     ${results}=                 QueryRecords
@@ -124,5 +124,5 @@ Delete Record By Name
     # Step 3: Verify the record no longer exists
     ${verify}=                  QueryRecords
     ...                         SELECT Id FROM ${sobject} WHERE Id \= '${record_id}' LIMIT 1
-    Should Be Equal As Integers    ${verify}[totalSize]     0
+    Should Be Equal As Integers                             ${verify}[totalSize]        0
     Log                         Successfully deleted ${sobject}: ${record_name}
