@@ -62,7 +62,8 @@ Login
     ...                         | Login |
     ...
     ...                         *See Also:* JwtAuthenticate, JwtLogin, ClientAuthenticate
-    JwtAuthenticate             ${client_id}                ${username}                 ${server_key}
+    [Arguments]                 ${sandbox}=False
+    JwtAuthenticate             ${client_id}                ${username}                 ${server_key}    sandbox=${sandbox}
     JwtLogin
 
 Setup
