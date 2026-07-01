@@ -5,7 +5,7 @@ Library                RequestsLibrary
 Library                QForce
 Library                XML
 Suite Setup            Setup Browser
-Test Setup             Sales Home
+Test Setup             Sales Home    True
 
 
 *** Test Cases ***
