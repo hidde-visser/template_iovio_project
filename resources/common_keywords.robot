@@ -71,7 +71,8 @@ Setup
 
 Sales Home
     [Documentation]             Navigate to homepage, login if needed
-    Login
+    [Arguments]                 ${sandbox}=False
+    Login                       ${sandbox}
     LaunchApp                   Sales
     GoTo                        ${login_url}/lightning/page/home
     VerifyText                  Home                        tag=span
